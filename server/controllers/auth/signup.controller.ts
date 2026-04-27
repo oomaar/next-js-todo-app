@@ -30,6 +30,7 @@ export async function signupController(req: NextRequest): Promise<NextResponse> 
         id: user._id.toString(),
         name: user.name,
         email: user.email,
+        theme: user.theme,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       },
