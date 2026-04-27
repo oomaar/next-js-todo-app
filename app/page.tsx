@@ -1,23 +1,89 @@
 "use client";
 
-import { EmptyState } from "@/components/ui/EmptyState";
+import { useState } from "react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { TodoList } from "@/components/todos/TodoList";
+import { TodoModal } from "@/components/todos/TodoModal";
 import { useLogout } from "@/hooks/auth/useLogout";
 import { useUpdateTheme } from "@/hooks/user/useUpdateTheme";
+import { useGetTodos } from "@/hooks/todos/useGetTodos";
+import { useCreateTodo } from "@/hooks/todos/useCreateTodo";
+import { useUpdateTodo } from "@/hooks/todos/useUpdateTodo";
+import { useDeleteTodo } from "@/hooks/todos/useDeleteTodo";
 import type { Theme } from "@/server/dtos/UserDTOs/user.dto";
+import type { TodoDTO } from "@/server/dtos/TodoDTOs/todo.dto";
 
-const STATS = [
-  { label: "Total tasks",  value: "0", valueClass: "text-slate-900 dark:text-slate-100" },
-  { label: "Completed",    value: "0", valueClass: "text-emerald-600 dark:text-emerald-400" },
-  { label: "Pending",      value: "0", valueClass: "text-amber-600 dark:text-amber-400" },
+type Filter = "all" | "pending" | "completed";
+
+const FILTER_LABELS: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "completed", label: "Completed" },
 ];
 
 export default function HomePage() {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTodo, setEditTodo] = useState<TodoDTO | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const { mutate: updateTheme } = useUpdateTheme();
+  const { data, isLoading, isError, refetch } = useGetTodos();
+  const { mutate: createTodo, isPending: isCreating } = useCreateTodo();
+  const { mutate: updateTodo, isPending: isUpdating } = useUpdateTodo();
+  const { mutate: deleteTodo } = useDeleteTodo();
 
-  function handleThemeChange(theme: Theme) {
-    updateTheme({ theme });
+  const todos = data?.todos ?? [];
+
+  const totalCount = todos.length;
+  const completedCount = todos.filter((t) => t.completed).length;
+  const pendingCount = totalCount - completedCount;
+
+  const filteredTodos = todos.filter((t) => {
+    if (filter === "pending") return !t.completed;
+    if (filter === "completed") return t.completed;
+    return true;
+  });
+
+  function openCreate() {
+    setEditTodo(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(todo: TodoDTO) {
+    setEditTodo(todo);
+    setModalOpen(true);
+  }
+
+  function handleModalSubmit(title: string, description: string) {
+    if (editTodo) {
+      updateTodo(
+        { id: editTodo.id, body: { title, description: description || undefined } },
+        { onSuccess: () => setModalOpen(false) }
+      );
+    } else {
+      createTodo(
+        { title, description: description || undefined },
+        { onSuccess: () => setModalOpen(false) }
+      );
+    }
+  }
+
+  function handleToggle(id: string, completed: boolean) {
+    setTogglingId(id);
+    updateTodo(
+      { id, body: { completed } },
+      { onSettled: () => setTogglingId(null) }
+    );
+  }
+
+  function handleDelete(id: string) {
+    setDeletingId(id);
+    deleteTodo(id, { onSettled: () => setDeletingId(null) });
   }
 
   return (
@@ -35,7 +101,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle onThemeChange={handleThemeChange} />
+            <ThemeToggle onThemeChange={(theme: Theme) => updateTheme({ theme })} />
 
             <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-700 sm:block" />
 
@@ -70,24 +136,42 @@ export default function HomePage() {
 
         {/* Stats */}
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {STATS.map(({ label, value, valueClass }) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800"
-            >
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
-              <p className={`mt-1.5 text-3xl font-bold ${valueClass}`}>{value}</p>
-            </div>
-          ))}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total tasks</p>
+            <p className="mt-1.5 text-3xl font-bold text-slate-900 dark:text-slate-100">{totalCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Completed</p>
+            <p className="mt-1.5 text-3xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Pending</p>
+            <p className="mt-1.5 text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingCount}</p>
+          </div>
         </div>
 
-        {/* Toolbar skeleton */}
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />
+        {/* Toolbar */}
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            {FILTER_LABELS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
+                  filter === value
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <button className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+          >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -95,22 +179,34 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Todo list area */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-800">
-          <EmptyState
-            title="No tasks yet"
-            description="Add your first task and start getting things done."
-            action={
-              <button className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Add your first task
-              </button>
-            }
-          />
+        {/* Todo list */}
+        <div className="min-h-50 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-800">
+          {isLoading ? (
+            <LoadingState message="Loading your tasks…" />
+          ) : isError ? (
+            <ErrorState message="Could not load tasks." onRetry={() => refetch()} />
+          ) : (
+            <TodoList
+              todos={filteredTodos}
+              deletingId={deletingId}
+              togglingId={togglingId}
+              onToggle={handleToggle}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              onAddFirst={openCreate}
+              activeFilter={filter}
+            />
+          )}
         </div>
       </main>
+
+      <TodoModal
+        open={modalOpen}
+        editTodo={editTodo}
+        isPending={isCreating || isUpdating}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   );
 }
