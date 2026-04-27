@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { connectDB } from "@/server/db/mongoose";
 import User from "@/server/models/User";
 import { UpdateThemeDTO } from "@/server/dtos/UserDTOs/update-theme.dto";
@@ -9,12 +8,7 @@ const VALID_THEMES: Theme[] = ["light", "dark", "system"];
 
 export async function updateThemeController(req: NextRequest): Promise<NextResponse> {
   try {
-    const token = req.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
+    const userId = req.headers.get("x-user-id")!;
 
     const body: UpdateThemeDTO = await req.json();
     const { theme } = body;
@@ -29,7 +23,7 @@ export async function updateThemeController(req: NextRequest): Promise<NextRespo
     await connectDB();
 
     const user = await User.findByIdAndUpdate(
-      payload.id,
+      userId,
       { theme },
       { new: true }
     );
@@ -52,9 +46,6 @@ export async function updateThemeController(req: NextRequest): Promise<NextRespo
       { status: 200 }
     );
   } catch (error) {
-    if ((error as Error).name === "JsonWebTokenError" || (error as Error).name === "TokenExpiredError") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
     console.error("[update-theme]", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
