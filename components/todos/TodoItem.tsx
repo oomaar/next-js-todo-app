@@ -26,7 +26,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete, isDeleting, isToggl
       <button
         onClick={() => onToggle(todo.id, !todo.completed)}
         disabled={isToggling}
-        className="mt-0.5 flex-shrink-0 focus:outline-none disabled:cursor-not-allowed"
+        className="mt-0.5 shrink-0 focus:outline-none disabled:cursor-not-allowed"
         aria-label={todo.completed ? "Mark incomplete" : "Mark complete"}
       >
         <motion.div
@@ -80,7 +80,7 @@ export function TodoItem({ todo, onToggle, onEdit, onDelete, isDeleting, isToggl
       </div>
 
       {/* Actions */}
-      <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button
           onClick={() => onEdit(todo)}
           className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400"

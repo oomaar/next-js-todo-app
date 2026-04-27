@@ -20,10 +20,13 @@ function resolveTheme(theme: Theme): ResolvedTheme {
   return theme;
 }
 
-function applyTheme(theme: Theme) {
-  const resolved = resolveTheme(theme);
-  document.documentElement.classList.toggle("dark", resolved === "dark");
-  return resolved;
+function applyTheme(theme: Theme): void {
+  document.documentElement.classList.toggle("dark", resolveTheme(theme) === "dark");
+}
+
+function readStoredTheme(fallback: Theme): Theme {
+  if (typeof window === "undefined") return fallback;
+  return (localStorage.getItem("theme") as Theme | null) ?? fallback;
 }
 
 export function ThemeProvider({
@@ -33,30 +36,38 @@ export function ThemeProvider({
   children: React.ReactNode;
   initialTheme?: Theme;
 }) {
-  const [theme, setThemeState] = useState<Theme>(initialTheme ?? "system");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+  const [theme, setThemeState] = useState<Theme>(() =>
+    readStoredTheme(initialTheme ?? "system")
+  );
+
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
+    if (typeof window === "undefined") return "light";
+    return resolveTheme(readStoredTheme(initialTheme ?? "system"));
+  });
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
+    setResolvedTheme(resolveTheme(next));
     localStorage.setItem("theme", next);
-    setResolvedTheme(applyTheme(next));
+    applyTheme(next);
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem("theme") as Theme | null;
-    const active = stored ?? initialTheme ?? "system";
-    setThemeState(active);
-    setResolvedTheme(applyTheme(active));
+    // Apply DOM class — no setState here
+    applyTheme(theme);
+
+    if (theme !== "system") return;
 
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     function onSystemChange() {
-      const current = (localStorage.getItem("theme") as Theme | null) ?? "system";
-      if (current === "system") setResolvedTheme(applyTheme("system"));
+      const resolved = resolveTheme("system");
+      document.documentElement.classList.toggle("dark", resolved === "dark");
+      setResolvedTheme(resolved);
     }
 
     mql.addEventListener("change", onSystemChange);
     return () => mql.removeEventListener("change", onSystemChange);
-  }, [initialTheme]);
+  }, [theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>

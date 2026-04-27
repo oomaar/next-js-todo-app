@@ -4,7 +4,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen">
       {/* Decorative left panel — always dark gradient, no dark mode variant needed */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-12 text-white">
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-linear-to-br from-indigo-600 via-indigo-700 to-violet-800 p-12 text-white">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
             <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
